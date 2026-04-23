@@ -1,8 +1,7 @@
-// ============ THREE.JS SETUP (PREMIUM GLOW - NAIL ART EDITION) ============
 let scene, camera, renderer;
-let particles = [];
-let mouseX = 0;
-let mouseY = 0;
+let sparkleObjects = [];
+let dustLayers = [];
+let mouseX = 0, mouseY = 0;
 
 function initThree() {
     const canvas = document.getElementById('three-canvas');
@@ -11,209 +10,203 @@ function initThree() {
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    // Scene
     scene = new THREE.Scene();
     scene.background = null;
 
-    // Camera
     camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     camera.position.z = 10;
 
-    // Renderer
-    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setClearColor(0x000000, 0);
 
-    // Lighting (Professional Studio Setup)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-    scene.add(ambientLight);
+    // Lighting
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1);
-    mainLight.position.set(2, 4, 5);
-    scene.add(mainLight);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2);
+    keyLight.position.set(3, 5, 6);
+    scene.add(keyLight);
 
-    const pointLight1 = new THREE.PointLight(0xB76E79, 4); // Rose Gold
-    pointLight1.position.set(5, 5, 5);
-    scene.add(pointLight1);
+    const roseLight = new THREE.PointLight(0xB76E79, 8, 40);
+    roseLight.position.set(6, 5, 5);
+    scene.add(roseLight);
 
-    const pointLight2 = new THREE.PointLight(0xD4AF37, 2); // Gold
-    pointLight2.position.set(-5, -5, 5);
-    scene.add(pointLight2);
+    const goldLight = new THREE.PointLight(0xFFD700, 5, 40);
+    goldLight.position.set(-6, -4, 5);
+    scene.add(goldLight);
 
-    // Create Glitter Dust (Salon Finish)
-    createGlitter();
-    
-    // Create Stylized Floating Nails
-    createStylizedNails();
+    const fillLight = new THREE.PointLight(0xF7D9D9, 3, 30);
+    fillLight.position.set(0, 0, 8);
+    scene.add(fillLight);
 
-    // Mouse tracking
-    document.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('resize', onWindowResize);
+    createDust();
+    createSparkles();
+
+    document.addEventListener('mousemove', e => {
+        mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+        mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+    });
+    window.addEventListener('resize', onResize);
 
     animate();
 }
 
-function createGlitter() {
-    // Layer 1: Fine Dust
-    const dustGeometry = new THREE.BufferGeometry();
-    const dustCount = 4000;
-    const dustPosArray = new Float32Array(dustCount * 3);
+// ── Dust Particles ────────────────────────────────────────────────────────────
 
-    for (let i = 0; i < dustCount * 3; i++) {
-        dustPosArray[i] = (Math.random() - 0.5) * 45;
-    }
+function createDust() {
+    const specs = [
+        { count: 3000, size: 0.035, color: 0xF7C5C5, opacity: 0.45, vel: new THREE.Vector3(0.002, 0.001, 0) },
+        { count: 1500, size: 0.05,  color: 0xFFD700, opacity: 0.3,  vel: new THREE.Vector3(-0.001, 0.002, 0) },
+        { count: 800,  size: 0.07,  color: 0xffffff, opacity: 0.25, vel: new THREE.Vector3(0.0015, -0.001, 0) }
+    ];
 
-    dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPosArray, 3));
+    specs.forEach(s => {
+        const geo = new THREE.BufferGeometry();
+        const pos = new Float32Array(s.count * 3);
+        for (let i = 0; i < s.count * 3; i++) pos[i] = (Math.random() - 0.5) * 45;
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 
-    const dustMaterial = new THREE.PointsMaterial({
-        size: 0.03,
-        sizeAttenuation: true,
-        color: 0xB76E79,
-        transparent: true,
-        opacity: 0.5,
-        blending: THREE.AdditiveBlending
-    });
-
-    const dustMesh = new THREE.Points(dustGeometry, dustMaterial);
-    scene.add(dustMesh);
-    particles.push({ mesh: dustMesh, type: 'dust', velocity: new THREE.Vector3((Math.random() - 0.5) * 0.01, (Math.random() - 0.5) * 0.01, (Math.random() - 0.5) * 0.01) });
-
-    // Layer 2: High Brilliance Sparkles (Brillos)
-    const sparkleGeometry = new THREE.BufferGeometry();
-    const sparkleCount = 300;
-    const sparklePosArray = new Float32Array(sparkleCount * 3);
-
-    for (let i = 0; i < sparkleCount * 3; i++) {
-        sparklePosArray[i] = (Math.random() - 0.5) * 40;
-    }
-
-    sparkleGeometry.setAttribute('position', new THREE.BufferAttribute(sparklePosArray, 3));
-
-    const sparkleMaterial = new THREE.PointsMaterial({
-        size: 0.08,
-        sizeAttenuation: true,
-        color: 0xF7D9D9,
-        transparent: true,
-        opacity: 0.9,
-        blending: THREE.AdditiveBlending
-    });
-
-    const sparkleMesh = new THREE.Points(sparkleGeometry, sparkleMaterial);
-    scene.add(sparkleMesh);
-    particles.push({ mesh: sparkleMesh, type: 'dust', velocity: new THREE.Vector3((Math.random() - 0.5) * 0.02, (Math.random() - 0.5) * 0.02, (Math.random() - 0.5) * 0.02) });
-}
-
-function createStylizedNails() {
-    const nailCount = 20;
-    
-    // Improved Nail Tip Shape: Almond/Stiletto style
-    // We'll use a Sphere for the rounded tip and a Box for the body, or a custom Lathe
-    const shape = new THREE.Shape();
-    shape.moveTo(-0.2, -0.5);
-    shape.lineTo(0.2, -0.5);
-    shape.lineTo(0.2, 0.2);
-    shape.quadraticCurveTo(0, 0.6, -0.2, 0.2); // Rounded top tip
-    shape.lineTo(-0.2, -0.5);
-
-    const extrudeSettings = {
-        steps: 1,
-        depth: 0.05,
-        bevelEnabled: true,
-        bevelThickness: 0.02,
-        bevelSize: 0.02,
-        bevelOffset: 0,
-        bevelSegments: 3
-    };
-
-    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    
-    for (let i = 0; i < nailCount; i++) {
-        const material = new THREE.MeshPhysicalMaterial({
-            color: i % 2 === 0 ? 0xB76E79 : 0xF7D9D9, 
-            metalness: 0.2,
-            roughness: 0.05,
-            clearcoat: 1.0,
-            clearcoatRoughness: 0.03,
-            transparent: true,
-            opacity: 0.7,
-            transmission: 0.5,
-            thickness: 0.5,
-            ior: 1.45
+        const mat = new THREE.PointsMaterial({
+            size: s.size, color: s.color,
+            transparent: true, opacity: s.opacity,
+            blending: THREE.AdditiveBlending, sizeAttenuation: true
         });
 
-        const nail = new THREE.Mesh(geometry, material);
-        
-        nail.position.set(
-            (Math.random() - 0.5) * 25,
-            (Math.random() - 0.5) * 25,
-            (Math.random() - 0.5) * 12
-        );
+        const mesh = new THREE.Points(geo, mat);
+        scene.add(mesh);
+        dustLayers.push({ mesh, vel: s.vel });
+    });
+}
 
-        nail.rotation.set(
+
+// ── Star Sparkles (Brillos) ───────────────────────────────────────────────────
+
+function makeStarShape(outerR, innerR, points) {
+    const shape = new THREE.Shape();
+    const total = points * 2;
+    for (let i = 0; i < total; i++) {
+        const angle = (i / total) * Math.PI * 2 - Math.PI / 2;
+        const r = i % 2 === 0 ? outerR : innerR;
+        const x = Math.cos(angle) * r;
+        const y = Math.sin(angle) * r;
+        if (i === 0) shape.moveTo(x, y);
+        else shape.lineTo(x, y);
+    }
+    shape.closePath();
+    return shape;
+}
+
+function createSparkles() {
+    // 4-pointed star (diamond/cruz sparkle)
+    const starGeo4 = new THREE.ExtrudeGeometry(makeStarShape(0.18, 0.05, 4), {
+        steps: 1, depth: 0.04,
+        bevelEnabled: true, bevelThickness: 0.01,
+        bevelSize: 0.01, bevelSegments: 2
+    });
+
+    // 6-pointed star (brillo clásico)
+    const starGeo6 = new THREE.ExtrudeGeometry(makeStarShape(0.13, 0.06, 6), {
+        steps: 1, depth: 0.04,
+        bevelEnabled: true, bevelThickness: 0.01,
+        bevelSize: 0.01, bevelSegments: 2
+    });
+
+    const sparkleColors = [0xFFD700, 0xFFFACD, 0xFFFFFF, 0xF7D9D9, 0xFFEC8B, 0xE8C85C];
+
+    for (let i = 0; i < 30; i++) {
+        const col = sparkleColors[i % sparkleColors.length];
+        const geo = i % 3 === 0 ? starGeo6 : starGeo4;
+
+        const mat = new THREE.MeshPhysicalMaterial({
+            color: col,
+            metalness: 0.9,
+            roughness: 0.0,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.0,
+            emissive: new THREE.Color(col),
+            emissiveIntensity: 0.4,
+            transparent: true,
+            opacity: 0.92
+        });
+
+        const star = new THREE.Mesh(geo, mat);
+        star.position.set(
+            (Math.random() - 0.5) * 28,
+            (Math.random() - 0.5) * 24,
+            (Math.random() - 0.5) * 9
+        );
+        star.rotation.set(
             Math.random() * Math.PI,
             Math.random() * Math.PI,
             Math.random() * Math.PI
         );
+        const s = 0.45 + Math.random() * 0.75;
+        star.scale.set(s, s, s);
 
-        scene.add(nail);
-        particles.push({
-            mesh: nail,
-            type: 'nail',
+        scene.add(star);
+        sparkleObjects.push({
+            mesh: star,
             rotVel: new THREE.Vector3(
-                (Math.random() - 0.5) * 0.03,
-                (Math.random() - 0.5) * 0.03,
-                (Math.random() - 0.5) * 0.02
+                (Math.random() - 0.5) * 0.018,
+                (Math.random() - 0.5) * 0.018,
+                (Math.random() - 0.5) * 0.025
             ),
-            velocity: new THREE.Vector3(
-                (Math.random() - 0.5) * 0.008,
-                (Math.random() - 0.5) * 0.008,
-                (Math.random() - 0.5) * 0.008
-            )
+            vel: new THREE.Vector3(
+                (Math.random() - 0.5) * 0.005,
+                (Math.random() - 0.5) * 0.005,
+                0
+            ),
+            pulseOffset: Math.random() * Math.PI * 2,
+            pulseSpeed: 1.2 + Math.random() * 1.5
         });
     }
 }
 
-function onMouseMove(event) {
-    mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-    mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
-}
+// ── Resize ────────────────────────────────────────────────────────────────────
 
-function onWindowResize() {
+function onResize() {
     const canvas = document.getElementById('three-canvas');
     if (!canvas) return;
     const container = canvas.parentElement;
-    const width = container.clientWidth;
-    const height = container.clientHeight;
-
-    camera.aspect = width / height;
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    renderer.setSize(width, height);
+    renderer.setSize(w, h);
+}
+
+// ── Animation Loop ────────────────────────────────────────────────────────────
+
+function wrapAt(pos, limit) {
+    if (pos.x >  limit) pos.x = -limit;
+    if (pos.x < -limit) pos.x =  limit;
+    if (pos.y >  limit) pos.y = -limit;
+    if (pos.y < -limit) pos.y =  limit;
 }
 
 function animate() {
     requestAnimationFrame(animate);
+    const t = Date.now() * 0.001;
 
-    // Animate elements
-    particles.forEach(p => {
-        p.mesh.position.add(p.velocity);
-        
-        if (p.type === 'dust') {
-            if (p.mesh.position.x > 20) p.mesh.position.x = -20;
-            if (p.mesh.position.x < -20) p.mesh.position.x = 20;
-            if (p.mesh.position.y > 20) p.mesh.position.y = -20;
-            if (p.mesh.position.y < -20) p.mesh.position.y = 20;
-        } else {
-            p.mesh.rotation.x += p.rotVel.x;
-            p.mesh.rotation.y += p.rotVel.y;
-            p.mesh.rotation.z += p.rotVel.z;
-            
-            // Subtle float effect
-            p.mesh.position.y += Math.sin(Date.now() * 0.001 + p.mesh.position.x) * 0.001;
-        }
+    sparkleObjects.forEach(s => {
+        s.mesh.rotation.x += s.rotVel.x;
+        s.mesh.rotation.y += s.rotVel.y;
+        s.mesh.rotation.z += s.rotVel.z;
+        s.mesh.position.x += s.vel.x;
+        s.mesh.position.y += s.vel.y;
+        // Pulse glow
+        const pulse = 0.25 + Math.abs(Math.sin(t * s.pulseSpeed + s.pulseOffset)) * 0.65;
+        s.mesh.material.emissiveIntensity = pulse;
+        wrapAt(s.mesh.position, 15);
     });
 
-    // Camera follow mouse (Luxury smooth tracking)
+    dustLayers.forEach(d => {
+        d.mesh.position.add(d.vel);
+        wrapAt(d.mesh.position, 24);
+    });
+
+    // Camera follows mouse
     camera.position.x += (mouseX * 1.5 - camera.position.x) * 0.05;
     camera.position.y += (mouseY * 1.5 - camera.position.y) * 0.05;
     camera.lookAt(0, 0, 0);
@@ -221,7 +214,8 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// Initialize
+// ── Init ──────────────────────────────────────────────────────────────────────
+
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initThree);
 } else {
