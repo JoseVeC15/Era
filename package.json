@@ -1,0 +1,13 @@
+{
+  "name": "era-nails-web",
+  "version": "1.0.0",
+  "description": "Sitio web premium para Era Nails & Hair",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "build": "echo 'No build step required for static site'"
+  },
+  "keywords": [],
+  "author": "JoseVeC15",
+  "license": "ISC"
+}
