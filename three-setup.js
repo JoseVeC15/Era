@@ -98,67 +98,58 @@ function makeStarShape(outerR, innerR, points) {
 }
 
 function createSparkles() {
-    // 4-pointed star (diamond/cruz sparkle)
-    const starGeo4 = new THREE.ExtrudeGeometry(makeStarShape(0.18, 0.05, 4), {
-        steps: 1, depth: 0.04,
-        bevelEnabled: true, bevelThickness: 0.01,
-        bevelSize: 0.01, bevelSegments: 2
-    });
-
     // 6-pointed star (brillo clásico)
-    const starGeo6 = new THREE.ExtrudeGeometry(makeStarShape(0.13, 0.06, 6), {
-        steps: 1, depth: 0.04,
+    const starGeo = new THREE.ExtrudeGeometry(makeStarShape(0.12, 0.05, 6), {
+        steps: 1, depth: 0.03,
         bevelEnabled: true, bevelThickness: 0.01,
         bevelSize: 0.01, bevelSegments: 2
     });
 
     const sparkleColors = [0xFFD700, 0xFFFACD, 0xFFFFFF, 0xF7D9D9, 0xFFEC8B, 0xE8C85C];
 
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) {
         const col = sparkleColors[i % sparkleColors.length];
-        const geo = i % 3 === 0 ? starGeo6 : starGeo4;
-
         const mat = new THREE.MeshPhysicalMaterial({
             color: col,
-            metalness: 0.9,
+            metalness: 0.95,
             roughness: 0.0,
             clearcoat: 1.0,
             clearcoatRoughness: 0.0,
             emissive: new THREE.Color(col),
-            emissiveIntensity: 0.4,
+            emissiveIntensity: 0.5,
             transparent: true,
-            opacity: 0.92
+            opacity: 0.9
         });
 
-        const star = new THREE.Mesh(geo, mat);
+        const star = new THREE.Mesh(starGeo, mat);
         star.position.set(
-            (Math.random() - 0.5) * 28,
-            (Math.random() - 0.5) * 24,
-            (Math.random() - 0.5) * 9
+            (Math.random() - 0.5) * 30,
+            (Math.random() - 0.5) * 25,
+            (Math.random() - 0.5) * 10
         );
         star.rotation.set(
             Math.random() * Math.PI,
             Math.random() * Math.PI,
             Math.random() * Math.PI
         );
-        const s = 0.45 + Math.random() * 0.75;
+        const s = 0.4 + Math.random() * 0.6;
         star.scale.set(s, s, s);
 
         scene.add(star);
         sparkleObjects.push({
             mesh: star,
             rotVel: new THREE.Vector3(
-                (Math.random() - 0.5) * 0.018,
-                (Math.random() - 0.5) * 0.018,
-                (Math.random() - 0.5) * 0.025
+                (Math.random() - 0.5) * 0.02,
+                (Math.random() - 0.5) * 0.02,
+                (Math.random() - 0.5) * 0.03
             ),
             vel: new THREE.Vector3(
-                (Math.random() - 0.5) * 0.005,
-                (Math.random() - 0.5) * 0.005,
+                (Math.random() - 0.5) * 0.006,
+                (Math.random() - 0.5) * 0.006,
                 0
             ),
             pulseOffset: Math.random() * Math.PI * 2,
-            pulseSpeed: 1.2 + Math.random() * 1.5
+            pulseSpeed: 1.0 + Math.random() * 2.0
         });
     }
 }
