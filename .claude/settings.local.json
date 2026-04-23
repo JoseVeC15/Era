@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat -ano)",
+      "Bash(findstr :8000)",
+      "Bash(ls -lh *.html *.css *.js)",
+      "Bash(ls -lh *.html *.css *.js *.md)",
+      "WebFetch(domain:www.instagram.com)",
+      "Bash(ls -1 ACTUALIZADO*.md)",
+      "Bash(ls -1 INSTAGRAM*.*)",
+      "Bash(ls -1 *.md *.txt)",
+      "Bash(ls -1 LOGO_*.md)"
+    ]
+  }
+}
