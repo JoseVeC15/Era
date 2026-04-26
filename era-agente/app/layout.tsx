@@ -8,6 +8,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
+      <head>
+        <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+      </head>
       <body>{children}</body>
     </html>
   );
