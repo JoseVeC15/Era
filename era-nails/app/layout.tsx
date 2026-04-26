@@ -4,6 +4,13 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Era Nails & Hair - Especialistas en Plástica de Pies Brasileña en Asunción',
   description: 'Era Nails & Hair Home Spa: Expertos en Plástica de Pies Brasileña Original, uñas acrílicas, gel y polygel en Fernando de la Mora, Asunción.',
+  openGraph: {
+    images: ['/logo.jpg'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/logo.jpg'],
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
