@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAdmin } from '@/lib/supabase/server'
 
 // GET — slots disponibles futuros (público)
 export async function GET() {
@@ -18,10 +18,9 @@ export async function GET() {
   return NextResponse.json(data ?? [])
 }
 
-// POST — crear slot (solo dueña autenticada)
+// POST — crear slot (solo admin)
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
@@ -32,6 +31,20 @@ export async function POST(req: NextRequest) {
   }
 
   const svc = createServiceClient()
+
+  // Validar que no haya solapamiento con slots existentes en la misma fecha
+  const { data: overlapping } = await svc
+    .from('available_slots')
+    .select('id')
+    .eq('date', date)
+    .lt('start_time', end_time)
+    .gt('end_time', start_time)
+    .limit(1)
+
+  if (overlapping && overlapping.length > 0) {
+    return NextResponse.json({ error: 'Ya existe un turno en ese horario' }, { status: 409 })
+  }
+
   const { data, error } = await svc
     .from('available_slots')
     .insert({ date, start_time, end_time, service: service || null })

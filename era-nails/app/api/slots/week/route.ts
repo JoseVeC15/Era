@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAdmin } from '@/lib/supabase/server'
 
 // GET /api/slots/week?from=YYYY-MM-DD&to=YYYY-MM-DD — para el panel admin
 export async function GET(req: NextRequest) {
+  const user = await requireAdmin()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   const { searchParams } = req.nextUrl
   const from = searchParams.get('from')
   const to = searchParams.get('to')

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAdmin } from '@/lib/supabase/server'
 
 export async function GET() {
   const svc = createServiceClient()
@@ -12,12 +12,10 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  // body: array de { day_of_week, is_open, open_time, close_time }
   if (!Array.isArray(body)) return NextResponse.json({ error: 'Array requerido' }, { status: 400 })
 
   const svc = createServiceClient()

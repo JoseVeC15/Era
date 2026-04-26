@@ -29,3 +29,11 @@ export function createServiceClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 }
+
+// Verifica que el usuario autenticado sea la admin configurada en ADMIN_EMAIL
+export async function requireAdmin() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user || user.email !== process.env.ADMIN_EMAIL) return null
+  return user
+}

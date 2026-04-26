@@ -22,18 +22,19 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+  const isAdmin = !!user && user.email === process.env.ADMIN_EMAIL
 
   // Proteger rutas /admin (excepto /admin/login)
   if (
     request.nextUrl.pathname.startsWith('/admin') &&
     !request.nextUrl.pathname.startsWith('/admin/login') &&
-    !user
+    !isAdmin
   ) {
     return NextResponse.redirect(new URL('/admin/login', request.url))
   }
 
-  // Si ya está autenticada y va a /admin/login, redirigir al dashboard
-  if (request.nextUrl.pathname === '/admin/login' && user) {
+  // Si ya está autenticada como admin y va a /admin/login, redirigir al dashboard
+  if (request.nextUrl.pathname === '/admin/login' && isAdmin) {
     return NextResponse.redirect(new URL('/admin/schedule', request.url))
   }
 

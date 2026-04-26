@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAdmin } from '@/lib/supabase/server'
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { phone, body } = await req.json()
   if (!phone || !body?.trim()) return NextResponse.json({ error: 'phone y body requeridos' }, { status: 400 })
 
-  // Send via YCloud
   const ycloudRes = await fetch('https://api.ycloud.com/v2/whatsapp/messages', {
     method: 'POST',
     headers: {
@@ -29,7 +27,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `YCloud error: ${err}` }, { status: 502 })
   }
 
-  // Save to crm_messages + pause bot for this conversation
   const svc = createServiceClient()
   const [{ data, error }] = await Promise.all([
     svc.from('crm_messages')

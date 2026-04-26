@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAdmin } from '@/lib/supabase/server'
 
-async function authCheck() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  return user
-}
-
-// GET ?phone=xxx — check if paused
+// GET ?phone=xxx — check if paused (usado por el agente internamente)
 export async function GET(req: NextRequest) {
   const phone = req.nextUrl.searchParams.get('phone')
   if (!phone) return NextResponse.json({ error: 'phone requerido' }, { status: 400 })
@@ -18,7 +12,8 @@ export async function GET(req: NextRequest) {
 
 // POST { phone } — pause bot
 export async function POST(req: NextRequest) {
-  if (!await authCheck()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireAdmin()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const { phone } = await req.json()
   if (!phone) return NextResponse.json({ error: 'phone requerido' }, { status: 400 })
   const svc = createServiceClient()
@@ -28,7 +23,8 @@ export async function POST(req: NextRequest) {
 
 // DELETE ?phone=xxx — resume bot
 export async function DELETE(req: NextRequest) {
-  if (!await authCheck()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = await requireAdmin()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const phone = req.nextUrl.searchParams.get('phone')
   if (!phone) return NextResponse.json({ error: 'phone requerido' }, { status: 400 })
   const svc = createServiceClient()

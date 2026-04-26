@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient, requireAdmin } from '@/lib/supabase/server'
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { id } = await params
   const { status } = await req.json()
   const validStatuses = ['confirmed', 'cancelled', 'completed', 'pending']
   if (!validStatuses.includes(status))
@@ -17,7 +16,6 @@ export async function PATCH(
 
   const svc = createServiceClient()
 
-  // Get appointment with slot + customer info
   const { data: appt, error: fetchErr } = await svc
     .from('appointments')
     .select('id, slot_id, status, customer_phone, customer_name, service, available_slots(date, start_time, end_time)')
@@ -26,7 +24,6 @@ export async function PATCH(
 
   if (fetchErr || !appt) return NextResponse.json({ error: 'Reserva no encontrada' }, { status: 404 })
 
-  // Update appointment status
   const { data, error } = await svc
     .from('appointments')
     .update({ status })
@@ -36,12 +33,10 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Free slot if cancelling
   if (status === 'cancelled' && appt.slot_id) {
     await svc.from('available_slots').update({ is_booked: false }).eq('id', appt.slot_id)
   }
 
-  // Send WhatsApp to client when confirmed
   if (status === 'confirmed' && appt.customer_phone && process.env.YCLOUD_API_KEY && process.env.YCLOUD_WHATSAPP_NUMBER) {
     const slot = (appt as any).available_slots
     const slotText = slot
