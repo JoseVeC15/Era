@@ -221,15 +221,37 @@ export async function POST(req: NextRequest) {
           await saveInbound(userPhone, label, "image", msgId || undefined);
 
           if (analysis.isTransfer && analysis.isValid) {
-            // Comprobante válido — datos coinciden
+            // Buscar la reserva pendiente más reciente de este teléfono y marcarla como seña recibida
+            const { data: pendingAppt } = await db()
+              .from('appointments')
+              .select('id, customer_name, service, available_slots(date, start_time, end_time)')
+              .eq('customer_phone', userPhone)
+              .eq('status', 'pending')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+
+            if (pendingAppt) {
+              await db().from('appointments').update({ status: 'payment_received' }).eq('id', pendingAppt.id)
+            }
+
+            const slot = (pendingAppt as any)?.available_slots
+            const slotLine = slot
+              ? `\n📅 ${new Date(slot.date + 'T12:00:00').toLocaleDateString('es-PY', { weekday: 'long', day: 'numeric', month: 'long' })} a las ${slot.start_time.slice(0, 5)}`
+              : ''
+
             const amountLine = analysis.amount ? `\nMonto: ${analysis.amount}` : "";
             const clientReply =
-              `¡Recibimos tu comprobante de pago! 🎉\n\nVerificamos los datos y tu seña está confirmada. En breve te confirmamos el turno. ¡Gracias por confiar en Era Nails & Hair! 💅`;
+              `¡Recibimos tu comprobante de pago! 🎉\n\nVerificamos los datos y tu seña está confirmada.${slotLine ? ` Te esperamos${slotLine}.` : ' En breve te confirmamos el turno.'}\n\n¡Gracias por confiar en Era Nails & Hair! 💅`;
             await sendWhatsAppMessage(userPhone, clientReply);
             await saveOutbound(userPhone, clientReply, true);
+
             const ownerPhone = process.env.OWNER_PHONE;
             if (ownerPhone) {
-              const ownerMsg = `✅ Seña verificada de +${userPhone}:${amountLine}\n${analysis.summary}`;
+              const apptLine = pendingAppt
+                ? `\n👤 ${pendingAppt.customer_name} — ${pendingAppt.service}${slotLine}`
+                : ''
+              const ownerMsg = `✅ Seña recibida de +${userPhone}:${amountLine}${apptLine}\n\nRevisá en /admin/reservas para confirmar.`
               await sendWhatsAppMessage(ownerPhone, ownerMsg);
             }
           } else if (analysis.isTransfer && !analysis.isValid) {

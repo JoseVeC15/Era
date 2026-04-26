@@ -9,7 +9,7 @@ interface Appointment {
   customer_name: string
   customer_phone: string
   service: string
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed'
+  status: 'pending' | 'payment_received' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
   notes: string | null
   created_at: string
   available_slots: Slot | null
@@ -25,15 +25,19 @@ interface EditForm {
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Pendiente',
+  payment_received: 'Seña recibida',
   confirmed: 'Confirmado',
-  cancelled: 'Cancelado',
   completed: 'Completado',
+  cancelled: 'Cancelado',
+  no_show: 'No asistió',
 }
 const STATUS_CLASS: Record<string, string> = {
   pending: 'badge-pending',
+  payment_received: 'badge-payment',
   confirmed: 'badge-confirmed',
-  cancelled: 'badge-cancelled',
   completed: 'badge-completed',
+  cancelled: 'badge-cancelled',
+  no_show: 'badge-noshow',
 }
 
 const SERVICES = [
@@ -143,13 +147,14 @@ export default function ReservasPage() {
   }
 
   const filtered = appointments.filter(a => {
-    if (filter === 'active') return a.status === 'pending' || a.status === 'confirmed'
+    if (filter === 'active') return ['pending', 'payment_received', 'confirmed'].includes(a.status)
     if (filter === 'all') return true
     return a.status === filter
   })
 
   const counts = {
-    active: appointments.filter(a => a.status === 'pending' || a.status === 'confirmed').length,
+    active: appointments.filter(a => ['pending', 'payment_received', 'confirmed'].includes(a.status)).length,
+    payment_received: appointments.filter(a => a.status === 'payment_received').length,
     confirmed: appointments.filter(a => a.status === 'confirmed').length,
     pending: appointments.filter(a => a.status === 'pending').length,
     completed: appointments.filter(a => a.status === 'completed').length,
@@ -183,12 +188,13 @@ export default function ReservasPage() {
 
         <div className="res-filters">
           {[
-            { key: 'active', label: `Activas (${counts.active})` },
-            { key: 'pending', label: `Pendientes (${counts.pending})` },
-            { key: 'confirmed', label: `Confirmadas (${counts.confirmed})` },
-            { key: 'completed', label: `Completadas (${counts.completed})` },
-            { key: 'cancelled', label: `Canceladas (${counts.cancelled})` },
-            { key: 'all', label: `Todas (${counts.all})` },
+            { key: 'active',           label: `Activas (${counts.active})` },
+            { key: 'payment_received', label: `Seña recibida (${counts.payment_received})` },
+            { key: 'pending',          label: `Pendientes (${counts.pending})` },
+            { key: 'confirmed',        label: `Confirmadas (${counts.confirmed})` },
+            { key: 'completed',        label: `Completadas (${counts.completed})` },
+            { key: 'cancelled',        label: `Canceladas (${counts.cancelled})` },
+            { key: 'all',              label: `Todas (${counts.all})` },
           ].map(f => (
             <button key={f.key} className={`res-filter-btn${filter === f.key ? ' active' : ''}`} onClick={() => setFilter(f.key)}>
               {f.label}
@@ -312,8 +318,13 @@ export default function ReservasPage() {
                 )}
 
                 {/* ── ACCIONES DE ESTADO ── */}
-                {!isEditing && (appt.status === 'pending' || appt.status === 'confirmed') && (
+                {!isEditing && !['cancelled', 'no_show'].includes(appt.status) && (
                   <div className="res-card-actions">
+                    {appt.status === 'payment_received' && (
+                      <button className="res-btn res-btn-confirm" disabled={isUpdating} onClick={() => updateStatus(appt.id, 'confirmed')}>
+                        ✓ Confirmar turno
+                      </button>
+                    )}
                     {appt.status === 'pending' && (
                       <button className="res-btn res-btn-confirm" disabled={isUpdating} onClick={() => updateStatus(appt.id, 'confirmed')}>
                         ✓ Confirmar seña
@@ -321,19 +332,33 @@ export default function ReservasPage() {
                     )}
                     {appt.status === 'confirmed' && (
                       <button className="res-btn res-btn-complete" disabled={isUpdating} onClick={() => updateStatus(appt.id, 'completed')}>
-                        ✓ Marcar completado
+                        ✓ Completado
                       </button>
                     )}
-                    <button
-                      className="res-btn res-btn-cancel"
-                      disabled={isUpdating}
-                      onClick={() => {
-                        if (confirm(`¿Cancelar la reserva de ${appt.customer_name}? El turno quedará disponible nuevamente.`))
-                          updateStatus(appt.id, 'cancelled')
-                      }}
-                    >
-                      ✕ Cancelar reserva
-                    </button>
+                    {appt.status === 'confirmed' && (
+                      <button
+                        className="res-btn res-btn-cancel"
+                        disabled={isUpdating}
+                        onClick={() => {
+                          if (confirm(`¿Marcar a ${appt.customer_name} como no presentado?`))
+                            updateStatus(appt.id, 'no_show')
+                        }}
+                      >
+                        No asistió
+                      </button>
+                    )}
+                    {appt.status !== 'completed' && (
+                      <button
+                        className="res-btn res-btn-cancel"
+                        disabled={isUpdating}
+                        onClick={() => {
+                          if (confirm(`¿Cancelar la reserva de ${appt.customer_name}? El turno quedará disponible nuevamente.`))
+                            updateStatus(appt.id, 'cancelled')
+                        }}
+                      >
+                        ✕ Cancelar
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
