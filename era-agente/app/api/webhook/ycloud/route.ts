@@ -4,7 +4,7 @@ import { runAgent } from "@/lib/agent";
 import { runOwnerAgent } from "@/lib/owner-agent";
 import { transcribeYCloudAudio, analyzeYCloudImage, type PaymentMethod } from "@/lib/transcribe";
 import { sendWhatsAppMessage, sendWhatsAppInteractive } from "@/lib/ycloud";
-import { saveInbound, saveOutbound } from "@/lib/crm";
+import { saveInbound, saveOutbound, getConversationHistory } from "@/lib/crm";
 
 // Dar hasta 60 segundos al agente para responder
 export const maxDuration = 60;
@@ -66,6 +66,17 @@ async function markProcessed(msgId: string): Promise<boolean> {
 }
 
 export async function POST(req: NextRequest) {
+  const webhookSecret = process.env.YCLOUD_WEBHOOK_SECRET
+  if (webhookSecret) {
+    const provided =
+      req.headers.get('x-ycloud-webhook-secret') ??
+      req.nextUrl.searchParams.get('secret') ??
+      ''
+    if (provided !== webhookSecret) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -156,9 +167,22 @@ export async function POST(req: NextRequest) {
         }
 
         try {
-          const reply = await runOwnerAgent(text);
+          let ownerHistory = conversations.get(userPhone)
+          if (!ownerHistory) {
+            const dbHistory = await getConversationHistory(userPhone, MAX_HISTORY * 2)
+            ownerHistory = dbHistory.length > 0 && dbHistory[dbHistory.length - 1].role === 'user'
+              ? dbHistory.slice(0, -1)
+              : dbHistory
+          }
+          const reply = await runOwnerAgent(text, ownerHistory);
           await sendWhatsAppMessage(userPhone, reply);
           await saveOutbound(userPhone, reply, true);
+          const ownerUpdated = [
+            ...ownerHistory,
+            { role: 'user' as const, content: text },
+            { role: 'assistant' as const, content: reply },
+          ]
+          conversations.set(userPhone, ownerUpdated.slice(-MAX_HISTORY * 2))
         } catch (err: any) {
           console.error("[ycloud] owner agent error:", err.message);
           await sendWhatsAppMessage(userPhone, "⚠️ Error procesando tu solicitud.");
@@ -267,7 +291,14 @@ function buildPaymentDataText(methods: PaymentMethod[]): string {
 }
 
 async function processAndReply(userPhone: string, text: string, paymentMethods: PaymentMethod[]) {
-  const history = conversations.get(userPhone) ?? [];
+  let history = conversations.get(userPhone)
+  if (!history) {
+    // Cold start — reload from DB, excluding the current inbound message we just saved
+    const dbHistory = await getConversationHistory(userPhone, MAX_HISTORY * 2)
+    history = dbHistory.length > 0 && dbHistory[dbHistory.length - 1].role === 'user'
+      ? dbHistory.slice(0, -1)
+      : dbHistory
+  }
   console.log("[ycloud] running agent for:", userPhone);
   const reply = await runAgent(text, userPhone, history, paymentMethods);
   console.log("[ycloud] agent replied:", reply.slice(0, 60));

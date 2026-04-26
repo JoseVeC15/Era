@@ -3,7 +3,11 @@ import { createServiceClient, requireAdmin } from '@/lib/supabase/server'
 
 export async function GET() {
   const svc = createServiceClient()
-  const { data, error } = await svc.from('payment_methods').select('*').order('type')
+  const { data, error } = await svc
+    .from('payment_methods')
+    .select('type, bank_name, account_number, account_holder, mobile_number, alias')
+    .eq('is_active', true)
+    .order('type')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data ?? [])
 }

@@ -41,11 +41,17 @@ HOY ES: ${todayLabel} — ISO: ${todayISO}
 Confirmá siempre lo que hiciste en pocas palabras. Usá formato claro con fecha y hora.`
 }
 
-export async function runOwnerAgent(userMessage: string): Promise<string> {
+export async function runOwnerAgent(
+  userMessage: string,
+  history: Array<{ role: 'user' | 'assistant'; content: string }> = []
+): Promise<string> {
   const result = await generateText({
     model: openai('gpt-4o-mini'),
     system: buildOwnerPrompt(),
-    messages: [{ role: 'user', content: userMessage }],
+    messages: [
+      ...history,
+      { role: 'user', content: userMessage },
+    ],
     tools: {
       listSlots: tool({
         description: 'Lista los turnos del calendario (incluye ocupados y libres)',

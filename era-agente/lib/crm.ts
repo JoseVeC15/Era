@@ -18,3 +18,22 @@ export async function saveOutbound(phone: string, body: string, isBot = true) {
   const { error } = await db().from('crm_messages').insert({ phone, direction: 'outbound', body, msg_type: 'text', is_bot: isBot })
   if (error) console.error('[crm] saveOutbound error:', error.message)
 }
+
+export async function getConversationHistory(
+  phone: string,
+  limit = 20
+): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
+  const { data } = await db()
+    .from('crm_messages')
+    .select('direction, body')
+    .eq('phone', phone)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (!data || data.length === 0) return []
+  return data
+    .reverse()
+    .map(msg => ({
+      role: (msg.direction === 'inbound' ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: msg.body as string,
+    }))
+}
