@@ -2,12 +2,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
-interface Slot {
-  id: string
-  date: string
-  start_time: string
-  end_time: string
-}
+interface Slot { id: string; date: string; start_time: string; end_time: string }
 
 interface Appointment {
   id: string
@@ -18,6 +13,14 @@ interface Appointment {
   notes: string | null
   created_at: string
   available_slots: Slot | null
+}
+
+interface EditForm {
+  customer_name: string
+  customer_phone: string
+  service: string
+  notes: string
+  slot_id: string
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -33,6 +36,12 @@ const STATUS_CLASS: Record<string, string> = {
   completed: 'badge-completed',
 }
 
+const SERVICES = [
+  'Plástica de Pies Básica', 'Plástica con Diseño Tradicional', 'Plástica con Semi Gel',
+  'Plástica con Semi French', 'Uñas Acrílicas Cortas', 'Uñas Acrílicas Largas',
+  'Gel Esculpido', 'Polygel', 'Kapping', 'Manicura', 'Otro',
+]
+
 function formatDate(date: string) {
   return new Date(date + 'T12:00:00').toLocaleDateString('es-PY', {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
@@ -40,12 +49,23 @@ function formatDate(date: string) {
 }
 function formatTime(t: string) { return t.slice(0, 5) }
 
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '0.6rem 0.8rem', borderRadius: '6px', fontSize: '0.9rem',
+  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,200,220,0.2)',
+  color: 'inherit', outline: 'none', boxSizing: 'border-box',
+}
+
 export default function ReservasPage() {
   const router = useRouter()
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [filter, setFilter] = useState<string>('active')
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<EditForm>({ customer_name: '', customer_phone: '', service: '', notes: '', slot_id: '' })
+  const [availableSlots, setAvailableSlots] = useState<Slot[]>([])
+  const [saving, setSaving] = useState(false)
+  const [editError, setEditError] = useState('')
 
   const fetchAppointments = useCallback(async () => {
     setLoading(true)
@@ -70,6 +90,56 @@ export default function ReservasPage() {
       setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: updated.status } : a))
     }
     setUpdating(null)
+  }
+
+  async function openEdit(appt: Appointment) {
+    setEditingId(appt.id)
+    setEditError('')
+    setEditForm({
+      customer_name: appt.customer_name,
+      customer_phone: appt.customer_phone,
+      service: appt.service,
+      notes: appt.notes ?? '',
+      slot_id: appt.available_slots?.id ?? '',
+    })
+    // Cargar turnos disponibles para reasignación
+    const res = await fetch('/api/slots')
+    const data = await res.json()
+    // Incluir el turno actual aunque esté ocupado
+    const current = appt.available_slots
+    const all = Array.isArray(data) ? data : []
+    if (current && !all.find((s: Slot) => s.id === current.id)) {
+      setAvailableSlots([current, ...all])
+    } else {
+      setAvailableSlots(all)
+    }
+  }
+
+  function closeEdit() { setEditingId(null); setEditError('') }
+
+  async function saveEdit(apptId: string) {
+    setSaving(true)
+    setEditError('')
+    const res = await fetch(`/api/appointments/${apptId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_name: editForm.customer_name,
+        customer_phone: editForm.customer_phone,
+        service: editForm.service,
+        notes: editForm.notes || null,
+        slot_id: editForm.slot_id || undefined,
+      }),
+    })
+    setSaving(false)
+    if (res.ok) {
+      const updated = await res.json()
+      setAppointments(prev => prev.map(a => a.id === apptId ? updated : a))
+      setEditingId(null)
+    } else {
+      const err = await res.json()
+      setEditError(err.error ?? 'Error al guardar')
+    }
   }
 
   const filtered = appointments.filter(a => {
@@ -111,7 +181,6 @@ export default function ReservasPage() {
           </div>
         </div>
 
-        {/* Filtros */}
         <div className="res-filters">
           {[
             { key: 'active', label: `Activas (${counts.active})` },
@@ -121,45 +190,41 @@ export default function ReservasPage() {
             { key: 'cancelled', label: `Canceladas (${counts.cancelled})` },
             { key: 'all', label: `Todas (${counts.all})` },
           ].map(f => (
-            <button
-              key={f.key}
-              className={`res-filter-btn${filter === f.key ? ' active' : ''}`}
-              onClick={() => setFilter(f.key)}
-            >
+            <button key={f.key} className={`res-filter-btn${filter === f.key ? ' active' : ''}`} onClick={() => setFilter(f.key)}>
               {f.label}
             </button>
           ))}
         </div>
 
         {loading && <p className="loading-msg">Cargando reservas...</p>}
-
-        {!loading && filtered.length === 0 && (
-          <div className="res-empty">
-            <p>No hay reservas en esta categoría.</p>
-          </div>
-        )}
+        {!loading && filtered.length === 0 && <div className="res-empty"><p>No hay reservas en esta categoría.</p></div>}
 
         <div className="res-list">
           {filtered.map(appt => {
             const slot = appt.available_slots
             const isUpdating = updating === appt.id
+            const isEditing = editingId === appt.id
+
             return (
               <div key={appt.id} className={`res-card res-card-${appt.status}`}>
                 <div className="res-card-top">
                   <div className="res-client">
                     <span className="res-name">{appt.customer_name}</span>
-                    <a
-                      href={`https://wa.me/${appt.customer_phone.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="res-phone"
-                    >
+                    <a href={`https://wa.me/${appt.customer_phone.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="res-phone">
                       📱 {appt.customer_phone}
                     </a>
                   </div>
-                  <span className={`res-badge ${STATUS_CLASS[appt.status]}`}>
-                    {STATUS_LABEL[appt.status]}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className={`res-badge ${STATUS_CLASS[appt.status]}`}>{STATUS_LABEL[appt.status]}</span>
+                    {appt.status !== 'cancelled' && (
+                      <button
+                        onClick={() => isEditing ? closeEdit() : openEdit(appt)}
+                        style={{ padding: '0.3rem 0.7rem', fontSize: '0.8rem', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,200,220,0.2)', borderRadius: '6px', color: 'inherit', cursor: 'pointer' }}
+                      >
+                        {isEditing ? '✕ Cerrar' : '✏️ Editar'}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="res-card-body">
@@ -170,9 +235,7 @@ export default function ReservasPage() {
                   {slot && (
                     <div className="res-info-row">
                       <span className="res-label">Turno</span>
-                      <span className="res-value">
-                        {formatDate(slot.date)} · {formatTime(slot.start_time)} – {formatTime(slot.end_time)}
-                      </span>
+                      <span className="res-value">{formatDate(slot.date)} · {formatTime(slot.start_time)} – {formatTime(slot.end_time)}</span>
                     </div>
                   )}
                   {appt.notes && (
@@ -183,23 +246,81 @@ export default function ReservasPage() {
                   )}
                 </div>
 
-                {(appt.status === 'pending' || appt.status === 'confirmed') && (
+                {/* ── FORMULARIO DE EDICIÓN INLINE ── */}
+                {isEditing && (
+                  <div style={{ borderTop: '1px solid rgba(255,200,220,0.15)', marginTop: '1rem', paddingTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                    <p style={{ fontSize: '0.85rem', opacity: 0.6, margin: 0 }}>Editar reserva</p>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                      <div>
+                        <p style={{ fontSize: '0.75rem', opacity: 0.5, margin: '0 0 0.3rem' }}>Nombre</p>
+                        <input style={inputStyle} value={editForm.customer_name} onChange={e => setEditForm(f => ({ ...f, customer_name: e.target.value }))} />
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '0.75rem', opacity: 0.5, margin: '0 0 0.3rem' }}>Teléfono</p>
+                        <input style={inputStyle} value={editForm.customer_phone} onChange={e => setEditForm(f => ({ ...f, customer_phone: e.target.value }))} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <p style={{ fontSize: '0.75rem', opacity: 0.5, margin: '0 0 0.3rem' }}>Servicio</p>
+                      <select style={inputStyle} value={editForm.service} onChange={e => setEditForm(f => ({ ...f, service: e.target.value }))}>
+                        {SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
+                        {!SERVICES.includes(editForm.service) && <option value={editForm.service}>{editForm.service}</option>}
+                      </select>
+                    </div>
+
+                    {availableSlots.length > 0 && (
+                      <div>
+                        <p style={{ fontSize: '0.75rem', opacity: 0.5, margin: '0 0 0.3rem' }}>Reprogramar turno</p>
+                        <select style={inputStyle} value={editForm.slot_id} onChange={e => setEditForm(f => ({ ...f, slot_id: e.target.value }))}>
+                          {availableSlots.map(s => (
+                            <option key={s.id} value={s.id}>
+                              {formatDate(s.date)} · {formatTime(s.start_time)}–{formatTime(s.end_time)}
+                              {s.id === appt.available_slots?.id ? ' (actual)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div>
+                      <p style={{ fontSize: '0.75rem', opacity: 0.5, margin: '0 0 0.3rem' }}>Notas</p>
+                      <textarea
+                        style={{ ...inputStyle, resize: 'vertical', minHeight: '60px' }}
+                        value={editForm.notes}
+                        onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                      />
+                    </div>
+
+                    {editError && <p style={{ color: '#ff6b6b', fontSize: '0.85rem', margin: 0 }}>{editError}</p>}
+
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button onClick={closeEdit} style={{ flex: 1, padding: '0.6rem', background: 'transparent', border: '1px solid rgba(255,200,220,0.2)', borderRadius: '6px', color: 'inherit', cursor: 'pointer', fontSize: '0.85rem' }}>
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => saveEdit(appt.id)}
+                        disabled={saving}
+                        className="res-btn res-btn-confirm"
+                        style={{ flex: 2, opacity: saving ? 0.6 : 1 }}
+                      >
+                        {saving ? 'Guardando...' : '✓ Guardar cambios'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── ACCIONES DE ESTADO ── */}
+                {!isEditing && (appt.status === 'pending' || appt.status === 'confirmed') && (
                   <div className="res-card-actions">
                     {appt.status === 'pending' && (
-                      <button
-                        className="res-btn res-btn-confirm"
-                        disabled={isUpdating}
-                        onClick={() => updateStatus(appt.id, 'confirmed')}
-                      >
-                        ✓ Confirmar
+                      <button className="res-btn res-btn-confirm" disabled={isUpdating} onClick={() => updateStatus(appt.id, 'confirmed')}>
+                        ✓ Confirmar seña
                       </button>
                     )}
                     {appt.status === 'confirmed' && (
-                      <button
-                        className="res-btn res-btn-complete"
-                        disabled={isUpdating}
-                        onClick={() => updateStatus(appt.id, 'completed')}
-                      >
+                      <button className="res-btn res-btn-complete" disabled={isUpdating} onClick={() => updateStatus(appt.id, 'completed')}>
                         ✓ Marcar completado
                       </button>
                     )}
