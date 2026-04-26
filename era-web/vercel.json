@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "cleanUrls": true,
-  "framework": null,
-  "buildCommand": null,
-  "outputDirectory": ".",
-  "devCommand": "npm start",
-  "installCommand": "npm install"
-}
