@@ -69,27 +69,24 @@ export async function createAppointment(data: {
   service: string
   notes?: string
 }): Promise<Appointment> {
-  const { error: slotErr } = await db()
-    .from('available_slots')
-    .update({ is_booked: true })
-    .eq('id', data.slot_id)
-
-  if (slotErr) throw new Error(`Error reservando slot: ${slotErr.message}`)
-
-  const { data: appt, error } = await db()
-    .from('appointments')
-    .insert({
-      slot_id: data.slot_id,
-      customer_name: data.name,
-      customer_phone: data.phone,
-      service: data.service,
-      notes: data.notes,
-      status: 'pending',
-    })
-    .select()
-    .single()
+  const { data: result, error } = await db().rpc('reserve_slot', {
+    p_slot_id: data.slot_id,
+    p_customer_name: data.name,
+    p_customer_phone: data.phone,
+    p_service: data.service,
+    p_notes: data.notes ?? null,
+  })
 
   if (error) throw new Error(error.message)
+  if (!result.success) throw new Error(result.error as string)
+
+  const { data: appt, error: fetchErr } = await db()
+    .from('appointments')
+    .select()
+    .eq('id', result.appointment_id)
+    .single()
+
+  if (fetchErr) throw new Error(fetchErr.message)
   return appt
 }
 

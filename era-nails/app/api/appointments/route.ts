@@ -35,44 +35,33 @@ export async function POST(req: NextRequest) {
 
   const svc = createServiceClient()
 
-  // Intentar bloquear el slot de forma atómica: solo actualiza si sigue libre
-  const { data: slotUpdate, error: slotErr } = await svc
-    .from('available_slots')
-    .update({ is_booked: true })
-    .eq('id', slot_id)
-    .eq('is_booked', false)
-    .select('id')
-    .single()
+  // Reservar usando RPC atómica con FOR UPDATE — evita doble-booking incluso bajo concurrencia
+  const { data: result, error: rpcErr } = await svc.rpc('reserve_slot', {
+    p_slot_id: slot_id,
+    p_customer_name: customer_name.trim(),
+    p_customer_phone: customer_phone.trim(),
+    p_service: service.trim(),
+    p_notes: notes?.trim() || null,
+  })
 
-  if (slotErr || !slotUpdate) {
-    return NextResponse.json(
-      { error: 'Este turno ya no está disponible' },
-      { status: 409 }
-    )
+  if (rpcErr) return NextResponse.json({ error: rpcErr.message }, { status: 500 })
+  if (!result.success) {
+    const status = result.error === 'slot_already_booked' ? 409 : 400
+    const message = result.error === 'slot_already_booked'
+      ? 'Este turno ya no está disponible'
+      : result.error
+    return NextResponse.json({ error: message }, { status })
   }
 
-  // Crear la reserva en estado pending
-  const { data: appt, error: apptErr } = await svc
+  const { data: appt, error: fetchErr } = await svc
     .from('appointments')
-    .insert({
-      slot_id,
-      customer_name: customer_name.trim(),
-      customer_phone: customer_phone.trim(),
-      service: service.trim(),
-      notes: notes?.trim() || null,
-      status: 'pending',
-    })
     .select(`
       id, customer_name, customer_phone, service, status, notes, created_at,
       available_slots ( id, date, start_time, end_time )
     `)
+    .eq('id', result.appointment_id)
     .single()
 
-  if (apptErr) {
-    // Si falla la inserción, liberar el slot
-    await svc.from('available_slots').update({ is_booked: false }).eq('id', slot_id)
-    return NextResponse.json({ error: apptErr.message }, { status: 500 })
-  }
-
+  if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 })
   return NextResponse.json(appt, { status: 201 })
 }

@@ -3,7 +3,6 @@ import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 import {
   getAvailableSlots,
-  isSlotAvailable,
   createAppointment,
   getAppointmentsByPhone,
   getSlotById,
@@ -210,18 +209,21 @@ export async function runAgent(
           notes: z.string().optional().describe("Notas adicionales"),
         }),
         execute: async ({ slot_id, name, service, notes }) => {
-          const available = await isSlotAvailable(slot_id)
-          if (!available) {
-            return { success: false, message: "Ese turno ya no está disponible. Consultá otros horarios con checkAvailability." }
+          let appt
+          try {
+            appt = await createAppointment({
+              slot_id,
+              name,
+              phone: userPhone,
+              service,
+              notes,
+            })
+          } catch (err: any) {
+            if (err.message === 'slot_already_booked') {
+              return { success: false, message: "Ese turno ya no está disponible. Consultá otros horarios con checkAvailability." }
+            }
+            throw err
           }
-
-          const appt = await createAppointment({
-            slot_id,
-            name,
-            phone: userPhone,
-            service,
-            notes,
-          })
 
           // SMS al dueño
           const ownerPhone = process.env.OWNER_PHONE
