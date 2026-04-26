@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 
-// DELETE — eliminar slot (solo dueña)
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,7 +16,6 @@ export async function DELETE(
   return NextResponse.json({ ok: true })
 }
 
-// PUT — editar horario de un slot (solo dueña)
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -41,23 +39,5 @@ export async function PUT(
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'Turno no encontrado o ya reservado' }, { status: 404 })
-  return NextResponse.json(data)
-}
-
-// PATCH — marcar como ocupado (chatbot/interno)
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params
-  const body = await req.json()
-  const svc = createServiceClient()
-  const { data, error } = await svc
-    .from('available_slots')
-    .update({ is_booked: body.is_booked ?? true })
-    .eq('id', id)
-    .select()
-    .single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json(data)
 }
