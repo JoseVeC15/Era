@@ -22,7 +22,8 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  const isAdmin = !!user && user.email === process.env.ADMIN_EMAIL
+  const allowed = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase())
+  const isAdmin = !!user?.email && allowed.includes(user.email.toLowerCase())
 
   // Proteger rutas /admin (excepto /admin/login)
   if (

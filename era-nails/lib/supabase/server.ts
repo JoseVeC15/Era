@@ -30,10 +30,12 @@ export function createServiceClient() {
   )
 }
 
-// Verifica que el usuario autenticado sea la admin configurada en ADMIN_EMAIL
+// Verifica que el usuario autenticado esté en la lista ADMIN_EMAILS (separada por comas)
 export async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.email !== process.env.ADMIN_EMAIL) return null
+  if (!user?.email) return null
+  const allowed = (process.env.ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase())
+  if (!allowed.includes(user.email.toLowerCase())) return null
   return user
 }
