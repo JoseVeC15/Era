@@ -5,20 +5,7 @@ import { formatDate, formatTime, slotDurationLabel } from '@/lib/utils'
 type Step = 'list' | 'form' | 'success' | 'taken'
 
 interface Slot { id: string; date: string; start_time: string; end_time: string }
-
-const SERVICES = [
-  'Plástica de Pies Básica',
-  'Plástica con Diseño Tradicional',
-  'Plástica con Semi Gel',
-  'Plástica con Semi French',
-  'Uñas Acrílicas Cortas',
-  'Uñas Acrílicas Largas',
-  'Gel Esculpido',
-  'Polygel',
-  'Kapping',
-  'Manicura',
-  'Otro',
-]
+interface Service { id: string; name: string; category: string; price_from: number | null }
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -43,6 +30,7 @@ const labelStyle: React.CSSProperties = {
 
 export default function ReservasSection() {
   const [slots, setSlots] = useState<Slot[]>([])
+  const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [step, setStep] = useState<Step>('list')
   const [selected, setSelected] = useState<Slot | null>(null)
@@ -53,11 +41,21 @@ export default function ReservasSection() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    fetch('/api/slots')
-      .then(r => r.json())
-      .then(data => { setSlots(Array.isArray(data) ? data : []); setLoading(false) })
-      .catch(() => setLoading(false))
+    Promise.all([
+      fetch('/api/slots').then(r => r.json()).catch(() => []),
+      fetch('/api/services').then(r => r.json()).catch(() => []),
+    ]).then(([slotsData, svcsData]) => {
+      setSlots(Array.isArray(slotsData) ? slotsData : [])
+      setServices(Array.isArray(svcsData) ? svcsData : [])
+      setLoading(false)
+    })
   }, [])
+
+  const servicesByCategory = services.reduce((acc, s) => {
+    if (!acc[s.category]) acc[s.category] = []
+    acc[s.category].push(s)
+    return acc
+  }, {} as Record<string, Service[]>)
 
   const grouped = slots.reduce((acc, slot) => {
     if (!acc[slot.date]) acc[slot.date] = []
@@ -150,14 +148,17 @@ export default function ReservasSection() {
 
             <div>
               <label style={labelStyle}>Servicio *</label>
-              <select
-                style={inputStyle}
-                value={service}
-                onChange={e => setService(e.target.value)}
-                required
-              >
+              <select style={inputStyle} value={service} onChange={e => setService(e.target.value)} required>
                 <option value="">Seleccioná un servicio</option>
-                {SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
+                {Object.entries(servicesByCategory).map(([cat, svcs]) => (
+                  <optgroup key={cat} label={cat}>
+                    {svcs.map(s => (
+                      <option key={s.id} value={s.name}>
+                        {s.name}{s.price_from ? ` — ₲${(s.price_from / 1000).toFixed(0)}.000` : ''}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
             </div>
 

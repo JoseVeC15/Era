@@ -1,8 +1,10 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import AdminNav from '@/components/AdminNav'
 
-interface Slot { id: string; date: string; start_time: string; end_time: string }
+interface Slot    { id: string; date: string; start_time: string; end_time: string }
+interface Service { id: string; name: string; category: string }
 
 interface Appointment {
   id: string
@@ -40,11 +42,6 @@ const STATUS_CLASS: Record<string, string> = {
   no_show: 'badge-noshow',
 }
 
-const SERVICES = [
-  'Plástica de Pies Básica', 'Plástica con Diseño Tradicional', 'Plástica con Semi Gel',
-  'Plástica con Semi French', 'Uñas Acrílicas Cortas', 'Uñas Acrílicas Largas',
-  'Gel Esculpido', 'Polygel', 'Kapping', 'Manicura', 'Otro',
-]
 
 function formatDate(date: string) {
   return new Date(date + 'T12:00:00').toLocaleDateString('es-PY', {
@@ -68,6 +65,7 @@ export default function ReservasPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<EditForm>({ customer_name: '', customer_phone: '', service: '', notes: '', slot_id: '' })
   const [availableSlots, setAvailableSlots] = useState<Slot[]>([])
+  const [catalogServices, setCatalogServices] = useState<Service[]>([])
   const [saving, setSaving] = useState(false)
   const [editError, setEditError] = useState('')
 
@@ -80,7 +78,10 @@ export default function ReservasPage() {
     setLoading(false)
   }, [router])
 
-  useEffect(() => { fetchAppointments() }, [fetchAppointments])
+  useEffect(() => {
+    fetchAppointments()
+    fetch('/api/services').then(r => r.json()).then(d => setCatalogServices(Array.isArray(d) ? d : [])).catch(() => {})
+  }, [fetchAppointments])
 
   async function updateStatus(id: string, status: string) {
     setUpdating(id)
@@ -164,17 +165,7 @@ export default function ReservasPage() {
 
   return (
     <div className="admin-layout">
-      <nav className="admin-nav">
-        <span className="logo-text">💅 Era Nails & Hair — Admin</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <a href="/admin/schedule" className="admin-nav-link">Turnos</a>
-          <a href="/admin/reservas" className="admin-nav-link active">Reservas</a>
-          <a href="/admin/horarios" className="admin-nav-link">Horarios</a>
-          <a href="/admin/pagos" className="admin-nav-link">Pagos</a>
-          <a href="/admin/crm" className="admin-nav-link">CRM</a>
-          <a href="/" style={{ opacity: 0.6, fontSize: '0.85rem' }}>← Sitio</a>
-        </div>
-      </nav>
+      <AdminNav />
 
       <div className="admin-content">
         <div className="schedule-header">
@@ -271,8 +262,16 @@ export default function ReservasPage() {
                     <div>
                       <p style={{ fontSize: '0.75rem', opacity: 0.5, margin: '0 0 0.3rem' }}>Servicio</p>
                       <select style={inputStyle} value={editForm.service} onChange={e => setEditForm(f => ({ ...f, service: e.target.value }))}>
-                        {SERVICES.map(s => <option key={s} value={s}>{s}</option>)}
-                        {!SERVICES.includes(editForm.service) && <option value={editForm.service}>{editForm.service}</option>}
+                        {editForm.service && !catalogServices.find(s => s.name === editForm.service) && (
+                          <option value={editForm.service}>{editForm.service}</option>
+                        )}
+                        {Object.entries(
+                          catalogServices.reduce((acc, s) => { if (!acc[s.category]) acc[s.category] = []; acc[s.category].push(s); return acc }, {} as Record<string, Service[]>)
+                        ).map(([cat, svcs]) => (
+                          <optgroup key={cat} label={cat}>
+                            {svcs.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                          </optgroup>
+                        ))}
                       </select>
                     </div>
 
