@@ -1,10 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -20,7 +18,8 @@ export default function LoginPage() {
       setError('Credenciales incorrectas')
       setLoading(false)
     } else {
-      router.push('/admin/schedule')
+      // Hard navigation so the middleware reads the fresh session cookie
+      window.location.href = '/admin/schedule'
     }
   }
 
