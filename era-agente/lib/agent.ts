@@ -60,6 +60,14 @@ ADICIONALES:
 - scheduleAppointment → usar solo DESPUÉS de que el cliente eligió un slot_id concreto de checkAvailability.
 - getMyAppointments → usar si el cliente quiere ver sus reservas.
 
+⏱️ DURACIONES POR SERVICIO (usá min_duration_minutes en checkAvailability):
+- Plástica básica: 90 min | Diseño tradicional: 120 min | Semi Gel/French: 150 min
+- Acrílicas cortas / Kapping / Gel kapping / Nivelado rubber: 90–120 min
+- Acrílicas largas / Milky Way largas / Gel esculpido largo: 150–180 min
+- Milky Way cortas / Gel esculpido corto: 120–150 min
+- Adicionales (diseño, remoción, encapsulado): 30–60 min
+Si el cliente menciona un servicio específico → usá la duración correspondiente. Si no menciona servicio → no pongas min_duration_minutes.
+
 ⚠️ REGLA CRÍTICA: Si alguien dice "hay turno", "tenés lugar", "qué días tienen", "para el martes", "quiero agendar", "por la tarde", "por la mañana" o cualquier cosa relacionada con disponibilidad o preferencia de horario → PRIMERO llamar checkAvailability, DESPUÉS responder. Jamás responder "no hay turnos" sin haber llamado el tool.
 
 ⚠️ REGLA RE-CONSULTA: Si el cliente ya preguntó disponibilidad y luego refina ("pero por la tarde", "pero más tarde", "otro día", etc.) → llamar checkAvailability DE NUEVO con el mismo rango, no usar resultados previos de la conversación.
@@ -171,16 +179,17 @@ export async function runAgent(
     ],
     tools: {
       checkAvailability: tool({
-        description: "Consulta los turnos disponibles. Filtrá por fecha exacta, o por rango from/to para buscar toda una semana.",
+        description: "Consulta los turnos disponibles. Filtrá por fecha exacta o rango from/to. Si el cliente mencionó un servicio con duración conocida, pasá min_duration_minutes para mostrar solo turnos suficientemente largos.",
         inputSchema: z.object({
           date: z.string().optional().describe("Fecha exacta YYYY-MM-DD (para un día específico)"),
-          from: z.string().optional().describe("Fecha inicio rango YYYY-MM-DD (para semana completa u otro rango)"),
+          from: z.string().optional().describe("Fecha inicio rango YYYY-MM-DD"),
           to: z.string().optional().describe("Fecha fin rango YYYY-MM-DD"),
+          min_duration_minutes: z.number().optional().describe("Duración mínima del turno en minutos (ej: 150 para acrílicas largas, 90 para plástica básica)"),
         }),
-        execute: async ({ date, from, to }) => {
-          console.log("[checkAvailability] date:", date ?? "-", "from:", from ?? "-", "to:", to ?? "-")
+        execute: async ({ date, from, to, min_duration_minutes }) => {
+          console.log("[checkAvailability] date:", date ?? "-", "from:", from ?? "-", "to:", to ?? "-", "min_dur:", min_duration_minutes ?? "-")
           try {
-            const slots = await getAvailableSlots(date, from, to)
+            const slots = await getAvailableSlots(date, from, to, min_duration_minutes)
             console.log("[checkAvailability] slots encontrados:", slots.length)
             if (slots.length === 0) {
               return { available: false, message: "No hay turnos disponibles para ese período. Podés consultarnos directamente." }

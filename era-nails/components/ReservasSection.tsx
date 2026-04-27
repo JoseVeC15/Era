@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { formatDate, formatTime, slotDurationLabel } from '@/lib/utils'
+import { formatDate, formatTime, slotDurationLabel, timeToMinutes } from '@/lib/utils'
 
 type Step = 'list' | 'form' | 'success' | 'taken'
 
-interface Slot { id: string; date: string; start_time: string; end_time: string }
-interface Service { id: string; name: string; category: string; price_from: number | null }
+interface Slot    { id: string; date: string; start_time: string; end_time: string }
+interface Service { id: string; name: string; category: string; price_from: number | null; duration_minutes: number | null }
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -32,6 +32,7 @@ export default function ReservasSection() {
   const [slots, setSlots] = useState<Slot[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
+  const [filterServiceId, setFilterServiceId] = useState('')
   const [step, setStep] = useState<Step>('list')
   const [selected, setSelected] = useState<Slot | null>(null)
   const [name, setName] = useState('')
@@ -57,7 +58,14 @@ export default function ReservasSection() {
     return acc
   }, {} as Record<string, Service[]>)
 
-  const grouped = slots.reduce((acc, slot) => {
+  const activeFilter = services.find(s => s.id === filterServiceId) ?? null
+  const filterMinutes = activeFilter?.duration_minutes ?? 0
+
+  const filteredSlots = filterMinutes > 0
+    ? slots.filter(s => timeToMinutes(s.end_time) - timeToMinutes(s.start_time) >= filterMinutes)
+    : slots
+
+  const grouped = filteredSlots.reduce((acc, slot) => {
     if (!acc[slot.date]) acc[slot.date] = []
     acc[slot.date].push(slot)
     return acc
@@ -65,7 +73,9 @@ export default function ReservasSection() {
 
   function openForm(slot: Slot) {
     setSelected(slot)
-    setName(''); setPhone(''); setService(''); setNotes('')
+    setName(''); setPhone(''); setNotes('')
+    // Pre-fill service if the client already chose one for filtering
+    setService(activeFilter?.name ?? '')
     setStep('form')
   }
 
@@ -261,8 +271,49 @@ export default function ReservasSection() {
         <div className="title-underline"></div>
       </div>
 
+      {/* ── Filtro por servicio ── */}
+      {!loading && services.length > 0 && (
+        <div style={{ maxWidth: '520px', margin: '0 auto 2rem', padding: '0 1rem' }}>
+          <select
+            value={filterServiceId}
+            onChange={e => setFilterServiceId(e.target.value)}
+            style={{
+              width: '100%', padding: '0.75rem 1rem',
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(245,210,230,0.25)',
+              borderRadius: '8px', color: 'var(--quartz)', fontSize: '0.95rem', outline: 'none',
+            }}
+          >
+            <option value="">Todos los servicios</option>
+            {Object.entries(servicesByCategory).map(([cat, svcs]) => (
+              <optgroup key={cat} label={cat}>
+                {svcs.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}{s.duration_minutes ? ` · ${s.duration_minutes} min` : ''}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          {activeFilter && filterMinutes > 0 && (
+            <p style={{ fontSize: '0.78rem', textAlign: 'center', marginTop: '0.5rem', opacity: 0.5 }}>
+              Mostrando turnos de {filterMinutes} min o más · {filteredSlots.length} disponible{filteredSlots.length !== 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="reservas-grid">
         {loading && <p className="slots-loading-msg">Cargando turnos disponibles...</p>}
+
+        {!loading && filteredSlots.length === 0 && slots.length > 0 && activeFilter && (
+          <div className="no-slots-msg">
+            <p>No hay turnos disponibles para <strong>{activeFilter.name}</strong> ({filterMinutes} min).</p>
+            <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>Consultanos por WhatsApp para buscar una alternativa.</p>
+            <a href="https://wa.me/595984704144?text=Hola!%20Quiero%20consultar%20disponibilidad%20de%20turnos" target="_blank" rel="noopener noreferrer" className="slot-wa-btn" style={{ margin: '1rem auto 0' }}>
+              <i className="fab fa-whatsapp"></i> Consultar por WhatsApp
+            </a>
+          </div>
+        )}
 
         {!loading && slots.length === 0 && (
           <div className="no-slots-msg">

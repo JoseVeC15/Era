@@ -31,7 +31,7 @@ export interface Appointment {
   created_at: string
 }
 
-export async function getAvailableSlots(date?: string, from?: string, to?: string): Promise<Slot[]> {
+export async function getAvailableSlots(date?: string, from?: string, to?: string, minDurationMinutes?: number): Promise<Slot[]> {
   const today = new Date().toISOString().split('T')[0]
   let query = db()
     .from('available_slots')
@@ -50,7 +50,16 @@ export async function getAvailableSlots(date?: string, from?: string, to?: strin
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
-  return data ?? []
+  const slots = data ?? []
+
+  if (minDurationMinutes && minDurationMinutes > 0) {
+    return slots.filter(s => {
+      const [sh, sm] = s.start_time.split(':').map(Number)
+      const [eh, em] = s.end_time.split(':').map(Number)
+      return (eh * 60 + em) - (sh * 60 + sm) >= minDurationMinutes
+    })
+  }
+  return slots
 }
 
 export async function isSlotAvailable(slotId: string): Promise<boolean> {
