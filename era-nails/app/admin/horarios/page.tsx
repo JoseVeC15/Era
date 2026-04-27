@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import AdminNav from '@/components/AdminNav'
 
 const DAYS = [
   { day: 1, label: 'Lunes' },
@@ -99,17 +100,7 @@ export default function HorariosPage() {
 
   return (
     <div className="admin-layout">
-      <nav className="admin-nav">
-        <span className="logo-text">💅 Era Nails & Hair — Admin</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <a href="/admin/schedule" className="admin-nav-link">Turnos</a>
-          <a href="/admin/reservas" className="admin-nav-link">Reservas</a>
-          <a href="/admin/horarios" className="admin-nav-link active">Horarios</a>
-          <a href="/admin/pagos" className="admin-nav-link">Pagos</a>
-          <a href="/admin/crm" className="admin-nav-link">CRM</a>
-          <a href="/" style={{ opacity: 0.6, fontSize: '0.85rem' }}>← Sitio</a>
-        </div>
-      </nav>
+      <AdminNav />
 
       <div className="admin-content">
         <div className="schedule-header">

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import AdminNav from '@/components/AdminNav'
 
 interface Conversation {
   phone: string
@@ -178,17 +179,7 @@ export default function CRMPage() {
 
   return (
     <div className="admin-layout">
-      <nav className="admin-nav">
-        <span className="logo-text">💅 Era Nails & Hair — Admin</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <a href="/admin/schedule" className="admin-nav-link">Turnos</a>
-          <a href="/admin/reservas" className="admin-nav-link">Reservas</a>
-          <a href="/admin/horarios" className="admin-nav-link">Horarios</a>
-          <a href="/admin/pagos" className="admin-nav-link">Pagos</a>
-          <a href="/admin/crm" className="admin-nav-link active">CRM</a>
-          <a href="/" style={{ opacity: 0.6, fontSize: '0.85rem' }}>← Sitio</a>
-        </div>
-      </nav>
+      <AdminNav />
 
       <div className="crm-layout">
         {/* ── Sidebar: lista de conversaciones ── */}
